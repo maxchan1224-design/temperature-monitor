@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function validRecord(data) {
+      return data.keys().hasOnly([
+          'location', 'temperature', 'inputBy', 'remark', 'ownerId', 'createdAt', 'updatedAt'
+        ])
+        && data.location is string
+        && data.location.size() > 0
+        && data.location.size() <= 100
+        && data.temperature is number
+        && data.temperature >= 30
+        && data.temperature <= 45
+        && data.inputBy is string
+        && data.inputBy.size() > 0
+        && data.inputBy.size() <= 100
+        && data.remark is string
+        && data.remark.size() <= 500
+        && data.ownerId is string
+        && data.ownerId.size() >= 32
+        && data.ownerId.size() <= 64;
+    }
+
+    match /temperature_records/{recordId} {
+      allow read: if true;
+      allow create: if validRecord(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == null;
+      allow update: if validRecord(request.resource.data)
+        && request.time < resource.data.createdAt + duration.value(10, 'm')
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+  }
+}
